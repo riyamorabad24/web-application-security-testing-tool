@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WebScan 2.0 — Web Vulnerability Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Outfit:wght@300;500;700;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:       #0a0c10;
+      --surface:  #10141c;
+      --surface2: #161b27;
+      --border:   #1e2738;
+      --text:     #d6e0f5;
+      --muted:    #4a5a7a;
+      --accent:   #4fc3f7;
+      --green:    #43e97b;
+      --red:      #ff4d6d;
+      --yellow:   #ffd32a;
+      --mono:     'IBM Plex Mono', monospace;
+      --sans:     'Outfit', sans-serif;
+      --c-critical: #ff4d6d;
+      --c-high:     #ff7f50;
+      --c-medium:   #ffd32a;
+      --c-low:      #4fc3f7;
+      --c-info:     #8899bb;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: var(--sans); min-height: 100vh; overflow-x: hidden;
+    }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(79,195,247,0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79,195,247,0.025) 1px, transparent 1px);
+      background-size: 48px 48px; pointer-events: none; z-index: 0;
+    }
+
+    /* NAV */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2.5rem; height: 60px;
+      background: rgba(10,12,16,0.9); backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .brand-icon {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: linear-gradient(135deg, #4fc3f7, #7c5cbf);
+      display: grid; place-items: center; font-size: 15px;
+    }
+    .brand-name { font-family: var(--sans); font-weight: 900; font-size: 1.15rem; color: var(--text); letter-spacing: -0.5px; }
+    .brand-name em { font-style: normal; color: var(--accent); }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-links a {
+      color: var(--muted); text-decoration: none; padding: 5px 14px;
+      border-radius: 6px; font-size: 0.82rem; font-weight: 500;
+      transition: color .15s, background .15s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--accent); background: rgba(79,195,247,.08); }
+    .nav-cta { background: var(--accent) !important; color: #08090d !important; font-weight: 700 !important; }
+    .nav-cta:hover { background: #38b2e8 !important; }
+    .page { position: relative; z-index: 1; }
+
+    /* HERO */
+    .hero {
+      min-height: calc(100vh - 60px);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 4rem 2rem; position: relative;
+    }
+    .hero-glow {
+      position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+      width: 700px; height: 400px;
+      background: radial-gradient(ellipse, rgba(79,195,247,.1) 0%, transparent 65%);
+      pointer-events: none;
+    }
+    .badge {
+      display: inline-flex; align-items: center; gap: 7px;
+      background: rgba(79,195,247,.08); border: 1px solid rgba(79,195,247,.22);
+      border-radius: 100px; padding: 5px 16px; font-size: .72rem;
+      font-family: var(--mono); color: var(--accent); letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 2rem;
+    }
+    .badge::before {
+      content: ''; width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.6)} }
+    .hero h1 {
+      font-family: var(--sans); font-weight: 900;
+      font-size: clamp(2.8rem,7vw,5rem); line-height: 1.05;
+      letter-spacing: -2px; margin-bottom: 1.5rem;
+      background: linear-gradient(135deg, #e8f0ff 30%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero p { max-width: 480px; color: var(--muted); font-size: .93rem; line-height: 1.85; margin-bottom: 2.5rem; }
+    .hero-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: linear-gradient(135deg, var(--accent), #2196f3);
+      color: #08090d; text-decoration: none; font-family: var(--sans);
+      font-weight: 700; font-size: .95rem; padding: 13px 34px; border-radius: 10px;
+      box-shadow: 0 0 32px rgba(79,195,247,.3); transition: transform .2s, box-shadow .2s;
+    }
+    .hero-btn:hover { transform: translateY(-2px); box-shadow: 0 0 52px rgba(79,195,247,.45); }
+    .feature-row {
+      display: grid; grid-template-columns: repeat(3,1fr);
+      gap: 1rem; max-width: 860px; width: 100%; margin-top: 4.5rem;
+    }
+    .feat {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.6rem; text-align: left;
+      transition: border-color .2s, transform .2s;
+    }
+    .feat:hover { border-color: rgba(79,195,247,.28); transform: translateY(-3px); }
+    .feat-icon { font-size: 1.7rem; margin-bottom: .85rem; }
+    .feat h3 { font-weight: 700; font-size: .95rem; margin-bottom: .4rem; }
+    .feat p  { font-size: .78rem; color: var(--muted); line-height: 1.7; }
+
+    /* SCAN FORM */
+    .scan-wrap {
+      min-height: calc(100vh - 60px);
+      display: flex; align-items: center; justify-content: center; padding: 3rem 2rem;
+    }
+    .scan-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 2.8rem; width: 100%; max-width: 580px;
+      box-shadow: 0 0 60px rgba(0,0,0,.5);
+    }
+    .scan-box h2 { font-family: var(--sans); font-weight: 900; font-size: 1.75rem; margin-bottom: .4rem; letter-spacing: -.5px; }
+    .scan-box > p { color: var(--muted); font-size: .82rem; line-height: 1.75; margin-bottom: 1.8rem; }
+    .field-label {
+      font-family: var(--mono); font-size: .68rem; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: .5rem; display: block;
+    }
+    .input-row { display: flex; gap: .7rem; margin-bottom: 1.8rem; }
+    .input-row input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 15px; color: var(--text);
+      font-family: var(--mono); font-size: .86rem; outline: none; transition: border-color .2s;
+    }
+    .input-row input:focus { border-color: var(--accent); }
+    .input-row input::placeholder { color: var(--muted); }
+    .scan-btn {
+      background: var(--accent); color: #08090d; border: none; border-radius: 10px;
+      padding: 12px 22px; font-family: var(--sans); font-weight: 700; font-size: .9rem;
+      cursor: pointer; white-space: nowrap; transition: background .2s, box-shadow .2s;
+    }
+    .scan-btn:hover { background: #38b2e8; box-shadow: 0 0 22px rgba(79,195,247,.35); }
+    .modules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+    .module-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px; font-size: .76rem; color: var(--muted);
+    }
+    .module-tag {
+      font-family: var(--mono); font-size: .62rem; font-weight: 600;
+      background: rgba(79,195,247,.12); color: var(--accent);
+      padding: 2px 7px; border-radius: 4px; letter-spacing: 1px;
+    }
+    .disclaimer {
+      margin-top: 1.4rem; padding: 11px 14px;
+      background: rgba(255,211,42,.06); border: 1px solid rgba(255,211,42,.2);
+      border-radius: 8px; font-size: .72rem; color: var(--yellow); line-height: 1.65;
+    }
+
+    /* LOADING */
+    #loading {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,12,16,.92); z-index: 500;
+      flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem;
+    }
+    #loading.active { display: flex; }
+    .spinner {
+      width: 56px; height: 56px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%; animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .load-title { font-family: var(--sans); font-weight: 700; font-size: 1.05rem; color: var(--accent); }
+    .load-sub { font-family: var(--mono); font-size: .73rem; color: var(--muted); animation: blink 1.5s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+    /* RESULTS */
+    .results-wrap { max-width: 1060px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+    .results-head { margin-bottom: 2rem; }
+    .results-head h2 { font-weight: 900; font-size: 1.7rem; letter-spacing: -.5px; margin-bottom: .3rem; }
+    .results-target { font-family: var(--mono); font-size: .76rem; color: var(--muted); }
+    .results-target span { color: var(--accent); }
+
+    /* 5-card summary bar */
+    .summary-bar {
+      display: grid; grid-template-columns: 1.4fr repeat(4,1fr);
+      gap: .9rem; margin-bottom: 2.5rem;
+    }
+    .sum-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 1.2rem 1.4rem;
+      display: flex; flex-direction: column; align-items: flex-start; gap: .3rem;
+    }
+    .sum-card.total { border-color: rgba(79,195,247,.2); }
+    .sum-num { font-family: var(--sans); font-weight: 900; font-size: 2.4rem; line-height: 1; }
+    .sum-lbl { font-size: .68rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
+    .sum-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 100px;
+      font-size: .63rem; font-family: var(--mono); font-weight: 600;
+      letter-spacing: 1px; text-transform: uppercase; margin-top: .35rem;
+    }
+    .num-total    { color: var(--accent); }
+    .num-critical { color: var(--c-critical); }
+    .num-high     { color: var(--c-high); }
+    .num-medium   { color: var(--c-medium); }
+    .num-low      { color: var(--c-low); }
+    .badge-critical { background: rgba(255,77,109,.15);  color: var(--c-critical); }
+    .badge-high     { background: rgba(255,127,80,.15);  color: var(--c-high); }
+    .badge-medium   { background: rgba(255,211,42,.12);  color: var(--c-medium); }
+    .badge-low      { background: rgba(79,195,247,.12);  color: var(--c-low); }
+
+    /* Section heading */
+    .section-heading {
+      font-weight: 700; font-size: 1.05rem; color: var(--text);
+      margin: 2rem 0 1rem; padding-bottom: .5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Vuln cards */
+    .vuln-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; margin-bottom: .85rem; overflow: hidden;
+      transition: border-color .2s;
+    }
+    .vuln-card:hover { border-color: rgba(79,195,247,.2); }
+    .vuln-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .9rem 1.2rem; cursor: pointer; user-select: none; gap: 1rem;
+    }
+    .vuln-left { display: flex; align-items: center; gap: .75rem; flex: 1; min-width: 0; }
+    .sev-pill {
+      display: inline-flex; align-items: center; padding: 3px 10px;
+      border-radius: 100px; font-family: var(--mono); font-size: .62rem;
+      font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .sev-pill.critical { background: rgba(255,77,109,.18);  color: var(--c-critical); }
+    .sev-pill.high     { background: rgba(255,127,80,.18);  color: var(--c-high); }
+    .sev-pill.medium   { background: rgba(255,211,42,.15);  color: var(--c-medium); }
+    .sev-pill.low      { background: rgba(79,195,247,.15);  color: var(--c-low); }
+    .sev-pill.info     { background: rgba(136,153,187,.12); color: var(--c-info); }
+    .vuln-meta { min-width: 0; }
+    .vuln-title { font-weight: 600; font-size: .88rem; color: var(--text); }
+    .vuln-sub   { font-family: var(--mono); font-size: .67rem; color: var(--muted); margin-top: 2px; }
+    .chevron { color: var(--muted); font-size: .75rem; transition: transform .2s; flex-shrink: 0; }
+    .vuln-card.open .chevron { transform: rotate(180deg); }
+    .vuln-body {
+      display: none; padding: 0 1.2rem 1.2rem; border-top: 1px solid var(--border);
+    }
+    .vuln-card.open .vuln-body { display: block; }
+    .vlabel {
+      font-family: var(--mono); font-size: .65rem; letter-spacing: 1.5px;
+      text-transform: uppercase; color: var(--accent); margin: .9rem 0 .35rem;
+    }
+    .vdesc { font-size: .82rem; color: #8899bb; line-height: 1.75; }
+    .vfix  { font-size: .82rem; color: #8dbbaa; line-height: 1.75; }
+    .url-row {
+      display: flex; align-items: center; gap: .5rem; margin-top: .35rem;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 8px; padding: 8px 12px;
+    }
+    .url-text {
+      font-family: var(--mono); font-size: .72rem; color: var(--muted);
+      flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .copy-btn {
+      background: var(--accent); border: none; border-radius: 6px;
+      color: #08090d; font-family: var(--mono); font-size: .65rem; font-weight: 600;
+      padding: 4px 10px; cursor: pointer; flex-shrink: 0; transition: background .15s;
+    }
+    .copy-btn:hover { background: #38b2e8; }
+    .copy-ok { font-family: var(--mono); font-size: .65rem; color: var(--green); flex-shrink: 0; display: none; }
+
+    /* All-modules grid */
+    .modules-results-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .mod-col-head { display: flex; align-items: center; gap: 8px; margin-bottom: .75rem; }
+    .mod-tag {
+      font-family: var(--mono); font-size: .65rem; font-weight: 600;
+      background: rgba(79,195,247,.1); color: var(--accent);
+      padding: 3px 9px; border-radius: 5px; letter-spacing: 1px;
+    }
+    .mod-col-title { font-weight: 700; font-size: .92rem; color: var(--text); }
+
+    .rescan {
+      display: inline-flex; align-items: center; gap: 7px; margin-top: 2rem;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      text-decoration: none; padding: 10px 22px; border-radius: 10px;
+      font-family: var(--mono); font-size: .78rem; transition: border-color .2s, color .2s;
+    }
+    .rescan:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ABOUT */
+    .about-wrap { max-width: 780px; margin: 0 auto; padding: 5rem 2rem; }
+    .about-wrap h2 {
+      font-weight: 900; font-size: 2.4rem; letter-spacing: -1px; margin-bottom: 1rem;
+      background: linear-gradient(135deg, var(--text) 40%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .about-wrap p { color: var(--muted); font-size: .87rem; line-height: 1.85; margin-bottom: 1.4rem; }
+    .about-wrap h3 { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 2rem 0 .9rem; }
+    .owasp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; margin-bottom: 1.5rem; }
+    .owasp-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 13px; font-size: .77rem;
+      display: flex; align-items: center; gap: 9px;
+    }
+    .check { color: var(--green); font-weight: 700; }
+    .warn-box {
+      background: rgba(255,77,109,.07); border: 1px solid rgba(255,77,109,.22);
+      border-radius: 12px; padding: 1.2rem 1.4rem;
+      font-size: .81rem; color: #ff8fa5; line-height: 1.7;
+    }
+    .warn-box strong { color: var(--red); }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a href="/" class="brand">
+    <div class="brand-icon">S</div>
+    <span class="brand-name">Web<em>Scan</em></span>
+  </a>
+  <div class="nav-links">
+    <a href="/"      class="{{ 'active' if page == 'home' else '' }}">Home</a>
+    <a href="/scan"  class="{{ 'active' if page in ['scan','results'] else '' }}">Scan</a>
+    <a href="/about" class="{{ 'active' if page == 'about' else '' }}">About</a>
+    {% if page != 'results' %}
+    <a href="/scan" class="nav-cta">Start Scan &rarr;</a>
+    {% endif %}
+  </div>
+</nav>
+
+<!-- HOME -->
+{% if page == 'home' %}
+<div class="page">
+  <section class="hero">
+    <div class="hero-glow"></div>
+    <div class="badge">Security Assessment Tool</div>
+    <h1>Web Application<br>Vulnerability Scanner</h1>
+    <p>Automated detection of OWASP Top 10 vulnerabilities &mdash; SQL injection, XSS, CSRF, misconfigurations, SSL issues and more. Know your risks before attackers do.</p>
+    <a href="/scan" class="hero-btn">Start Security Scan &rarr;</a>
+    <div class="feature-row">
+      <div class="feat">
+        <div class="feat-icon">&#128269;</div>
+        <h3>7 Scan Modules</h3>
+        <p>Port scanning, SSL/TLS, headers, XSS, SQLi, CSRF, and directory enumeration all in one run.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">&#9889;</div>
+        <h3>Severity Breakdown</h3>
+        <p>Every finding rated Critical, High, Medium, or Low. Know exactly what to fix first.</p>
+      </div>
+      <div class="feat">
+        <div class="feat-icon">&#128203;</div>
+        <h3>Detailed Reports</h3>
+        <p>Expandable cards with OWASP mapping, affected URL copy button, and recommended fixes.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- SCAN FORM -->
+{% elif page == 'scan' %}
+<div class="page">
+  <div id="loading">
+    <div class="spinner"></div>
+    <div class="load-title">Scanning target...</div>
+    <div class="load-sub">Running all vulnerability modules</div>
+  </div>
+  <div class="scan-wrap">
+    <div class="scan-box">
+      <h2>Vulnerability Scanner</h2>
+      <p>Enter a target URL for a full security assessment. Only scan websites you own or have explicit written permission to test.</p>
+      <label class="field-label">Target URL</label>
+      <form method="POST" action="/scan" onsubmit="showLoading()">
+        <div class="input-row">
+          <input type="text" name="url" placeholder="https://example.com" required autocomplete="off"/>
+          <button type="submit" class="scan-btn">Scan Now</button>
+        </div>
+        <label class="field-label">Active Modules</label>
+        <div class="modules-grid">
+          <div class="module-chip"><span class="module-tag">PORT</span> Port Scanner</div>
+          <div class="module-chip"><span class="module-tag">SSL</span> SSL / TLS</div>
+          <div class="module-chip"><span class="module-tag">HDR</span> Security Headers</div>
+          <div class="module-chip"><span class="module-tag">XSS</span> XSS Detection</div>
+          <div class="module-chip"><span class="module-tag">SQL</span> SQL Injection</div>
+          <div class="module-chip"><span class="module-tag">CSRF</span> CSRF Check</div>
+          <div class="module-chip"><span class="module-tag">DIR</span> Directory Scan</div>
+          <div class="module-chip"><span class="module-tag">INFO</span> Info Disclosure</div>
+        </div>
+        <div class="disclaimer">
+          &#9888; Educational and authorized testing only. Unauthorized scanning may be illegal in your jurisdiction.
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- RESULTS -->
+{% elif page == 'results' %}
+<div class="page">
+  <div class="results-wrap">
+    <div class="results-head">
+      <h2>Vulnerability Summary</h2>
+      <p class="results-target">Target: <span>{{ target_url }}</span></p>
+    </div>
+
+    <!-- 5-card summary bar -->
+    <div class="summary-bar">
+      <div class="sum-card total">
+        <div class="sum-num num-total">{{ summary.total }}</div>
+        <div class="sum-lbl">Total Issues</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-num num-critical">{{ summary.critical }}</div>
+        <div class="sum-badge badge-critical">Critical</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-num num-high">{{ summary.high }}</div>
+        <div class="sum-badge badge-high">High</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-num num-medium">{{ summary.medium }}</div>
+        <div class="sum-badge badge-medium">Medium</div>
+      </div>
+      <div class="sum-card">
+        <div class="sum-num num-low">{{ summary.low }}</div>
+        <div class="sum-badge badge-low">Low</div>
+      </div>
+    </div>
+
+    <!-- Detected Vulnerabilities (non-info only) -->
+    {% if has_vulns %}
+    <div class="section-heading">Detected Vulnerabilities</div>
+    {% for v in vuln_findings %}
+    <div class="vuln-card" onclick="toggleCard(this)">
+      <div class="vuln-header">
+        <div class="vuln-left">
+          <span class="sev-pill {{ v.category }}">{{ v.severity }}</span>
+          <div class="vuln-meta">
+            <div class="vuln-title">{{ v.title }}</div>
+            <div class="vuln-sub">{{ v.section_title }}{% if v.owasp %} &nbsp;&middot;&nbsp; {{ v.owasp }}{% endif %}</div>
+          </div>
+        </div>
+        <span class="chevron">&#9660;</span>
+      </div>
+      <div class="vuln-body">
+        <div class="vlabel">Description</div>
+        <div class="vdesc">{{ v.description }}</div>
+        {% if v.affected_url %}
+        <div class="vlabel">Affected Resource</div>
+        <div class="url-row">
+          <span class="url-text" title="{{ v.affected_url }}">{{ v.affected_url }}</span>
+          <span class="copy-ok" id="ok-v-{{ loop.index }}">&#10003; Copied!</span>
+          <button class="copy-btn" onclick="copyUrl(event,'{{ v.affected_url }}','ok-v-{{ loop.index }}')">Copy</button>
+        </div>
+        {% endif %}
+        <div class="vlabel">Recommended Fix</div>
+        <div class="vfix">{{ v.fix }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <!-- All Modules grid -->
+    <div class="section-heading" style="margin-top: 2.5rem;">All Modules</div>
+    <div class="modules-results-grid">
+      {% for section in sections %}
+      <div>
+        <div class="mod-col-head">
+          <span class="mod-tag">{{ section.icon }}</span>
+          <span class="mod-col-title">{{ section.title }}</span>
+        </div>
+        <!-- KEY FIX: use section.results not section.items -->
+        {% for item in section.results %}
+        <div class="vuln-card" onclick="toggleCard(this)">
+          <div class="vuln-header">
+            <div class="vuln-left">
+              <span class="sev-pill {{ item.category }}">{{ item.severity }}</span>
+              <div class="vuln-title">{{ item.title }}</div>
+            </div>
+            <span class="chevron">&#9660;</span>
+          </div>
+          <div class="vuln-body">
+            <div class="vlabel">Description</div>
+            <div class="vdesc">{{ item.description }}</div>
+            {% if item.affected_url %}
+            <div class="vlabel">Affected Resource</div>
+            <div class="url-row">
+              <span class="url-text" title="{{ item.affected_url }}">{{ item.affected_url }}</span>
+              <span class="copy-ok" id="ok-{{ section.title }}-{{ loop.index }}">&#10003; Copied!</span>
+              <button class="copy-btn" onclick="copyUrl(event,'{{ item.affected_url }}','ok-{{ section.title }}-{{ loop.index }}')">Copy</button>
+            </div>
+            {% endif %}
+            <div class="vlabel">Recommended Fix</div>
+            <div class="vfix">{{ item.fix }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <a href="/scan" class="rescan">&larr; Scan Another URL</a>
+  </div>
+</div>
+
+<!-- ABOUT -->
+{% elif page == 'about' %}
+<div class="page">
+  <div class="about-wrap">
+    <h2>About WebScan</h2>
+    <p>WebScan is an open-source web application vulnerability scanner built with Python and Flask. It automates detection of common security weaknesses aligned with the OWASP Top 10.</p>
+    <h3>OWASP Top 10 Coverage</h3>
+    <div class="owasp-grid">
+      <div class="owasp-item"><span class="check">&#10003;</span> SQL Injection</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> Broken Access Control</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> XSS (Cross-Site Scripting)</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> Security Misconfigurations</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> CSRF Protection</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> Security Headers</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> SSL / TLS Issues</div>
+      <div class="owasp-item"><span class="check">&#10003;</span> Sensitive Endpoint Exposure</div>
+    </div>
+    <h3>Legal Notice</h3>
+    <div class="warn-box">
+      <strong>&#9888; Authorized use only.</strong> This tool is for educational and security testing on systems you own or have explicit written permission to test. Unauthorized scanning may violate computer fraud laws. The developers assume no liability for misuse.
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function showLoading() {
+  document.getElementById('loading').classList.add('active');
+}
+function toggleCard(card) {
+  card.classList.toggle('open');
+}
+function copyUrl(e, url, okId) {
+  e.stopPropagation();
+  navigator.clipboard.writeText(url).then(function() {
+    var el = document.getElementById(okId);
+    if (el) { el.style.display = 'inline'; setTimeout(function(){ el.style.display = 'none'; }, 2000); }
+  });
+}
+</script>
+</body>
+</html>
+
+
